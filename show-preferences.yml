@@ -1,0 +1,29 @@
+# show preferences
+
+shows:
+    LedZeppelin:
+        min-students: 1
+        max-students: 2
+    Metallica:
+        min-students: 1
+        max-students: 2
+    
+days:
+    - Mon
+    - Tue
+    
+students:
+    Jennifer:
+        show-utilities:
+            LedZeppelin: 2
+            Metallica: 0            
+        available-days:
+            - Mon
+            - Tue
+    Chao:
+        show-utilities:
+            LedZeppelin: 0
+            Metallica: 2          
+        available-days:
+            - Mon
+            - Tue    

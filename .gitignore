@@ -1,0 +1,7 @@
+# gitignore
+
+*.lp
+sudokuout.txt
+.idea
+__pycache__
+notebook/.ipynb_checkpoints/
