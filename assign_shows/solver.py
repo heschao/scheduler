@@ -71,9 +71,9 @@ class Config(object):
             x[name] = Show(name=name, min_students=d['min-students'], max_students=d['max-students'], )
         return x
 
-    def days(self) -> typing.Dict[str,Day]:
+    def days(self) -> typing.Dict[str, Day]:
         days = {}
-        for name,x in self.d['days'].items():
+        for name, x in self.d['days'].items():
             days[name] = Day(name=name, max_shows=x['max-shows'])
         return days
 
@@ -86,62 +86,6 @@ class Config(object):
         print(self.days())
 
 
-class FixedDayConf(object):
-    def __init__(self, shows: Dict[str, Show], students: Dict[str, Student]):
-        self._shows = shows
-        self._students = students
-
-    def is_available(self, student, show):
-        return show in self._students[student].shows()
-
-    def students(self):
-        return list(self._students.keys())
-
-    def shows(self):
-        return list(self._shows.keys())
-
-    def min_students(self, show):
-        return self._shows[show].min_students
-
-    def max_students(self, show):
-        return self._shows[show].max_students
-
-    def utility(self, student, show):
-        assert student in self._students
-        x = self._students[student]
-        return x.utility(show)
-
-
-class Solution(object):
-    def __init__(self, utility: float, solution_vector: Dict[Tuple, LpVariable]):
-        self.utility = utility
-        self.solution_vector = solution_vector
-
-    def __repr__(self):
-        return '<Solution(utility={utility})>\n{optimal_solution}'.format(utility=self.utility,
-                                                                          optimal_solution=self.solution_vector)
-
-    def assignments(self) -> typing.List[Tuple]:
-        return [pair for pair,var in self.solution_vector.items() if var.value()==1]
-
-
-
-    @classmethod
-    def sort(cls, solutions: Iterable):
-        return sorted(solutions, key=lambda x: -x.utility)
-
-
-class TestSolution(unittest.TestCase):
-    def test_sort(self):
-        v = {('1',): LpVariable(name='a')}
-        solutions = [
-            Solution(utility=3, solution_vector=v),
-            Solution(utility=2, solution_vector=v),
-        ]
-        result = Solution.sort(solutions)
-        assert result[0].utility == 3, result
-
-
 class DayAssignmentException(Exception):
     pass
 
@@ -149,6 +93,9 @@ class DayAssignmentException(Exception):
 class DayAssignment(object):
     def __init__(self, d: Dict[str, str] = None):
         self.d = d if d else {}
+
+    def __repr__(self):
+        return '<DayAssignment({})>'.format(self.d)
 
     def day(self, show: str) -> str:
         return self.d[show]
@@ -175,6 +122,65 @@ class DayAssignment(object):
                     show_name, self.d[show_name], day_name
                 ))
         self.d[show_name] = day_name
+
+
+class FixedDayConf(object):
+    def __init__(self, shows: Dict[str, Show], students: Dict[str, Student], day_assignment:DayAssignment=None):
+        self._shows = shows
+        self._students = students
+        self._day_assignment = day_assignment
+
+    def __repr__(self):
+        return '<FixedDayConf(assignment={})>'.format(self._day_assignment)
+
+    def is_available(self, student, show):
+        return show in self._students[student].shows()
+
+    def students(self):
+        return list(self._students.keys())
+
+    def shows(self):
+        return list(self._shows.keys())
+
+    def min_students(self, show):
+        return self._shows[show].min_students
+
+    def max_students(self, show):
+        return self._shows[show].max_students
+
+    def utility(self, student, show):
+        assert student in self._students
+        x = self._students[student]
+        return x.utility(show)
+
+
+class Solution(object):
+    def __init__(self, utility: float, solution_vector: Dict[Tuple, LpVariable], config:FixedDayConf=None):
+        self.utility = utility
+        self.solution_vector = solution_vector
+        self.config = config
+
+    def __repr__(self):
+        return '<Solution(utility={utility})>\n{optimal_solution}'.format(utility=self.utility,
+                                                                          optimal_solution=self.solution_vector)
+
+    def assignments(self) -> typing.List[Tuple]:
+        return [pair for pair, var in self.solution_vector.items() if var.value() == 1]
+
+    @classmethod
+    def sort(cls, solutions: Iterable):
+        return sorted(solutions, key=lambda x: -x.utility)
+
+
+class TestSolution(unittest.TestCase):
+    def test_sort(self):
+        v = {('1',): LpVariable(name='a')}
+        solutions = [
+            Solution(utility=3, solution_vector=v),
+            Solution(utility=2, solution_vector=v),
+        ]
+        result = Solution.sort(solutions)
+        assert result[0].utility == 3, result
 
 
 def solve_fixed_days(fixed_day_confs: typing.Iterable[FixedDayConf]) -> typing.Iterable[Solution]:
@@ -233,7 +239,7 @@ def solved_fixed_day(conf: FixedDayConf) -> Solution:
         prob.solve()
         print("Status:", LpStatus[prob.status])
 
-    return Solution(utility=-value(prob.objective), solution_vector=x)
+    return Solution(utility=-value(prob.objective), solution_vector=x, config=conf)
 
 
 def test_solve_fixed_day():
@@ -263,7 +269,7 @@ def create_fixed_day_config(conf: Config, day_assignment: DayAssignment):
             if day not in student.days():
                 s.show_utilities.pop(show.name)
         students[s.name] = s
-    return FixedDayConf(shows=conf.shows(), students=students)
+    return FixedDayConf(shows=conf.shows(), students=students, day_assignment=day_assignment)
 
 
 def enumerate_day_assignments(days: typing.List[Day], shows: typing.List[Show],
@@ -288,11 +294,20 @@ def enumerate_day_assignments(days: typing.List[Day], shows: typing.List[Show],
         yield from enumerate_day_assignments(days=days, shows=other_shows, initial_assignment=assignment)
 
 
-def test_enumerate_day_assignments():
+def test_enumerate_day_assignments_1():
     days = [Day('Mon', 3), Day('Wed', 3)]
-    shows = [Show('Led', 1, 2), Show('Met', 2, 3), Show('GNR',1,1)]
+    shows = [Show('Led', 1, 2), Show('Met', 2, 3), Show('GNR', 1, 1)]
     result = [x for x in enumerate_day_assignments(days, shows)]
     assert len(result) == 8
+
+
+def test_enumerate_day_assignments_2():
+    days = [Day('Mon', 1), Day('Wed', 1)]
+    shows = [Show('Led', 1, 2), Show('Met', 2, 3)]
+    result = [x for x in enumerate_day_assignments(days, shows)]
+    assert len(result) == 2
+    assert result[0].day('Led')=='Mon',result
+    assert result[0].day('Met')=='Wed',result
 
 
 def get_fixed_day_configs(conf: Config) -> typing.Iterable[FixedDayConf]:

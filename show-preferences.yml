@@ -15,17 +15,24 @@ days:
         max-shows: 1
     
 students:
-    Jennifer:
+    Ramona:
         show-utilities:
             LedZeppelin: 2
             Metallica: 0            
         available-days:
             - Mon
             - Tue
+
+    Jennifer:
+        show-utilities:
+            LedZeppelin: 2
+            Metallica: 0            
+        available-days:
+            - Tue
     Chao:
         show-utilities:
-            LedZeppelin: 0
-            Metallica: 2          
+            LedZeppelin: 1
+            Metallica: 1        
         available-days:
             - Mon
             - Tue    

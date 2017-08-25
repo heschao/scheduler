@@ -17,7 +17,11 @@ def main(pref_file, test_config):
 
     solutions = solve_fixed_days(fixed_day_confs=get_fixed_day_configs(conf))
     print('solution')
-    print(next(solutions).assignments())
+    optimal_solution = next(solutions)
+    print('show days:')
+    print(optimal_solution.config)
+    print('assignments: ')
+    print(optimal_solution.assignments())
 
 
 if __name__ == "__main__":
