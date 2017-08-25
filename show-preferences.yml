@@ -9,8 +9,10 @@ shows:
         max-students: 2
     
 days:
-    - Mon
-    - Tue
+    Mon: 
+        max-shows: 1
+    Tue:
+        max-shows: 1
     
 students:
     Jennifer:

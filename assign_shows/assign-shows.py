@@ -17,7 +17,7 @@ def main(pref_file, test_config):
 
     solutions = solve_fixed_days(fixed_day_confs=get_fixed_day_configs(conf))
     print('solution')
-    print(next(solutions))
+    print(next(solutions).assignments())
 
 
 if __name__ == "__main__":

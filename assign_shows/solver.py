@@ -71,12 +71,11 @@ class Config(object):
             x[name] = Show(name=name, min_students=d['min-students'], max_students=d['max-students'], )
         return x
 
-    def days(self) -> typing.List[Day]:
+    def days(self) -> typing.Dict[str,Day]:
         days = {}
-        for x in self.d['days']:
-            name = x['name']
-            days[name] = (Day(name=name, max_shows=x['max-shows']))
-        return self.d['days']
+        for name,x in self.d['days'].items():
+            days[name] = Day(name=name, max_shows=x['max-shows'])
+        return days
 
     def test(self):
         print('students:')
@@ -121,6 +120,11 @@ class Solution(object):
     def __repr__(self):
         return '<Solution(utility={utility})>\n{optimal_solution}'.format(utility=self.utility,
                                                                           optimal_solution=self.solution_vector)
+
+    def assignments(self) -> typing.List[Tuple]:
+        return [pair for pair,var in self.solution_vector.items() if var.value()==1]
+
+
 
     @classmethod
     def sort(cls, solutions: Iterable):
@@ -177,7 +181,7 @@ def solve_fixed_days(fixed_day_confs: typing.Iterable[FixedDayConf]) -> typing.I
     solutions = []
     for conf in fixed_day_confs:
         solutions.append(solved_fixed_day(conf))
-    return Solution.sort(solutions)
+    return iter(Solution.sort(solutions))
 
 
 def load_yaml(pref_file):
@@ -254,7 +258,7 @@ def create_fixed_day_config(conf: Config, day_assignment: DayAssignment):
     students = {}
     for student in conf.students():
         s = copy.deepcopy(student)
-        for show in conf.shows():
+        for show in conf.shows().values():
             day = day_assignment.day(show=show.name)
             if day not in student.days():
                 s.show_utilities.pop(show.name)
@@ -285,13 +289,13 @@ def enumerate_day_assignments(days: typing.List[Day], shows: typing.List[Show],
 
 
 def test_enumerate_day_assignments():
-    days = [Day('Mon', 1), Day('Wed', 1)]
-    shows = [Show('Led', 1, 2), Show('Met', 2, 3)]
+    days = [Day('Mon', 3), Day('Wed', 3)]
+    shows = [Show('Led', 1, 2), Show('Met', 2, 3), Show('GNR',1,1)]
     result = [x for x in enumerate_day_assignments(days, shows)]
-    assert len(result) == 2
+    assert len(result) == 8
 
 
 def get_fixed_day_configs(conf: Config) -> typing.Iterable[FixedDayConf]:
-    assignments = enumerate_day_assignments(days=conf.days(), shows=list(conf.shows().values()))
+    assignments = enumerate_day_assignments(days=list(conf.days().values()), shows=list(conf.shows().values()))
     for day_assignment in assignments:
         yield create_fixed_day_config(conf=conf, day_assignment=day_assignment)
