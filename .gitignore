@@ -3,5 +3,6 @@
 *.lp
 sudokuout.txt
 .idea
-__pycache__
+*/__pycache__/*
 notebook/.ipynb_checkpoints/
+*.pyc
