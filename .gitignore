@@ -6,3 +6,5 @@ sudokuout.txt
 */__pycache__/*
 notebook/.ipynb_checkpoints/
 *.pyc
+MANIFEST
+dist

@@ -11,6 +11,7 @@ __version__ = re.search(
 setup(
     name='scheduler',
     version=__version__,
+    include_package_data=True,
     packages=['assign_shows',],
     license='Assign kids to shows',
     long_description=open('README.md').read(), requires=['PyYAML', 'pulp', 'flask']
