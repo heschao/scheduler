@@ -8,154 +8,12 @@ from typing import Dict, Tuple, Iterable
 import yaml
 from pulp import LpVariable, LpInteger, LpProblem, LpMinimize, lpSum, LpStatus, value
 
-
-class Student(object):
-    def __init__(self, name: str = None, show_utilities: Dict[str, float] = None,
-                 available_days: typing.List[str] = None):
-        self.name = name
-        self.show_utilities = show_utilities
-        self.available_days = available_days
-
-    def __repr__(self):
-        return '<Student(name={name}, show_utilities={show_utilities}, available_days={available_days})>'.format(
-            name=self.name, show_utilities=self.show_utilities, available_days=self.available_days
-        )
-
-    def shows(self):
-        return self.show_utilities.keys()
-
-    def days(self):
-        return self.available_days
-
-    def utility(self, show):
-        if show in self.show_utilities:
-            return self.show_utilities[show]
-        else:
-            return 0
-
-
-class Show(object):
-    def __init__(self, name: str = None, min_students: int = None, max_students: int = None):
-        self.name = name
-        self.min_students = min_students
-        self.max_students = max_students
-
-    def __repr__(self):
-        return '<Show(name={name}, min_students={min_students}, max_students={max_students})>'.format(
-            name=self.name, min_students=self.min_students, max_students=self.max_students
-        )
-
-
-class Day(object):
-    def __init__(self, name: str = None, max_shows: int = None, ):
-        self.max_shows = max_shows
-        self.name = name
-
-
-class Config(object):
-    def __init__(self, d: dict):
-        self.d = d
-
-    def students(self) -> typing.Iterable[Student]:
-        x = []
-        for name, d in self.d['students'].items():
-            x.append(Student(name=name,
-                             show_utilities=d['show-utilities'],
-                             available_days=d['available-days'])
-                     )
-        return x
-
-    def shows(self):
-        x = {}
-        for name, d in self.d['shows'].items():
-            x[name] = Show(name=name, min_students=d['min-students'], max_students=d['max-students'], )
-        return x
-
-    def days(self) -> typing.Dict[str, Day]:
-        days = {}
-        for name, x in self.d['days'].items():
-            days[name] = Day(name=name, max_shows=x['max-shows'])
-        return days
-
-    def test(self):
-        print('students:')
-        print(self.students())
-        print('shows:')
-        print(self.shows())
-        print('days:')
-        print(self.days())
-
-
-class DayAssignmentException(Exception):
-    pass
-
-
-class DayAssignment(object):
-    def __init__(self, d: Dict[str, str] = None):
-        self.d = d if d else {}
-
-    def __repr__(self):
-        return '<DayAssignment({})>'.format(self.d)
-
-    def day(self, show: str) -> str:
-        return self.d[show]
-
-    def num_shows(self, day_name):
-        """
-        Get the number of shows assigned to the day
-        :param day_name:
-        :return:
-        """
-        return len([x for x in self.d.values() if x == day_name])
-
-    def add(self, day_name, show_name):
-        """
-        Assign a day to a show
-        Make sure show isn't already assigned to another day
-        :param day_name:
-        :param show_name:
-        :return:
-        """
-        if show_name in self.d:
-            raise DayAssignmentException(
-                'show {} is already assigned to day {}, but you are asking me to assign it to {}'.format(
-                    show_name, self.d[show_name], day_name
-                ))
-        self.d[show_name] = day_name
-
-
-class FixedDayConf(object):
-    def __init__(self, shows: Dict[str, Show], students: Dict[str, Student], day_assignment:DayAssignment=None):
-        self._shows = shows
-        self._students = students
-        self._day_assignment = day_assignment
-
-    def __repr__(self):
-        return '<FixedDayConf(assignment={})>'.format(self._day_assignment)
-
-    def is_available(self, student, show):
-        return show in self._students[student].shows()
-
-    def students(self):
-        return list(self._students.keys())
-
-    def shows(self):
-        return list(self._shows.keys())
-
-    def min_students(self, show):
-        return self._shows[show].min_students
-
-    def max_students(self, show):
-        return self._shows[show].max_students
-
-    def utility(self, student, show):
-        assert student in self._students
-        x = self._students[student]
-        return x.utility(show)
+from assign_shows.data import Student, Show, Day, DayAssignment
+from assign_shows.input_config import Config, FixedDayConf
 
 
 class Solution(object):
-    def __init__(self, utility: float, solution_vector: Dict[Tuple, LpVariable], config:FixedDayConf=None):
+    def __init__(self, utility: float, solution_vector: Dict[Tuple, LpVariable], config: FixedDayConf = None):
         self.utility = utility
         self.solution_vector = solution_vector
         self.config = config
@@ -170,6 +28,13 @@ class Solution(object):
     @classmethod
     def sort(cls, solutions: Iterable):
         return sorted(solutions, key=lambda x: -x.utility)
+
+    def show_slots(self):
+        """
+        Get a dictionary of show_name -> slot_name assignments
+        :return:
+        """
+        return self.config.show_slots()
 
 
 class TestSolution(unittest.TestCase):
@@ -306,8 +171,8 @@ def test_enumerate_day_assignments_2():
     shows = [Show('Led', 1, 2), Show('Met', 2, 3)]
     result = [x for x in enumerate_day_assignments(days, shows)]
     assert len(result) == 2
-    assert result[0].day('Led')=='Mon',result
-    assert result[0].day('Met')=='Wed',result
+    assert result[0].day('Led') == 'Mon', result
+    assert result[0].day('Met') == 'Wed', result
 
 
 def get_fixed_day_configs(conf: Config) -> typing.Iterable[FixedDayConf]:

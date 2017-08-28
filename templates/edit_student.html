@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Add/Edit Student</h2>
+     <form action="" method="post" name="edit_student">
+      {{ form.hidden_tag() }}
+         <div class="form-group row">
+             <label for="name" class="col-sm-2 col-form-label">Name</label>
+             <div class="col-sm-10">
+                 {{ form.name(class_="form-control") }}
+             </div>
+         </div>
+     {%  for p in form.preferences.entries %}
+        {{ p.hidden_tag() }}
+         <div class="form-group row">
+             <label class="col-sm-2 col-form-label">{{ p.show_name.data }}</label>
+             <div class="col-sm-10">
+                 {{ p.preference(class_="form-control") }}
+             </div>
+         </div>
+     {% endfor %}
+     {{ form.save_student(class_="btn btn-primary") }}
+     {{ form.delete_student(class_="btn btn-primary") }}
+     </form>
+{% endblock %}

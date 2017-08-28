@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Assignments</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Student</th>
+                <th>Show</th>
+                <th>Slot</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for assignment in assignments %}
+        <tr>
+            <td>{{ assignment.student_name }}</td>
+            <td>{{ assignment.show_name }}</td>
+            <td>{{ assignment.slot_name }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <form method="post" action="">
+      {{ form.hidden_tag() }}
+        {{ form.run(class_="btn btn-primary") }}
+    </form>
+{% endblock %}

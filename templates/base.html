@@ -1,0 +1,39 @@
+
+<head>
+    <title>Rock Show Scheduler</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.15/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+    <link href="/static/starter-template.css" rel="stylesheet">
+    <div>
+    {% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul class=flashes>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+    </div>
+</head>
+ <nav class="navbar navbar-toggleable-md navbar-inverse bg-inverse fixed-top">
+      <div class="collapse navbar-collapse" id="navbarsExampleDefault">
+        <ul class="navbar-nav mr-auto">
+            {% for text,url in navitems.items() %}
+                {% if text==active_navitem %}
+                    <li class="nav-item active">
+                {% else %}
+                    <li class="nav-item">
+                {% endif %}
+                <a class="nav-link" href={{ url_for(url) }}>{{ text }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+      </div>
+    </nav>
+<div class="container">
+    <div class="starter-template">
+        {% block content %}{% endblock %}
+    </div>
+</div>
