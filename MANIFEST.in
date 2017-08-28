@@ -1,2 +1,2 @@
-graft flaskr/templates
-graft flaskr/static
+graft assign_shows/templates
+graft assign_shows/static
