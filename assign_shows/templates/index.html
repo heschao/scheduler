@@ -1,17 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <script type="text/javascript" language="JavaScript" src="https://cdn.datatables.net/1.10.15/js/jquery.dataTables.min.js"></script>
-
-<script>
-{#$(document).ready(function() {#}
-{#    $('#shows').DataTable();#}
-{#{ );#}
-</script>
-    <h1>Rock n' Roll Show Scheduler</h1>
+<h1>Rock n' Roll Show Scheduler</h1>
     <p>
-    Welcome to the show scheduler. Here you will be able to enter kids' preferences for shows and days,
-    and assign shows to days and kids to shows. We formulate the problem as a mixed integer linear program
-    and solve it using Python's PULP package.
+        Welcome to the show scheduler. Here you will be able to enter kids' preferences for shows and days,
+        and assign shows to days and kids to shows. We formulate the problem as a mixed integer linear program
+        and solve it using Python's PULP package.
     </p>
 
     <form method="post" action="">
