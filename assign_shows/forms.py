@@ -24,7 +24,7 @@ class StudentForm(FlaskForm):
 class AssignmentForm(FlaskForm):
     run = SubmitField(label='run')
 
-class StartOverForm(FlaskForm):
+class OverviewForm(FlaskForm):
     start_over = SubmitField(label='start over')
     seed = SubmitField(label='seed')
     run = SubmitField(label='run')
