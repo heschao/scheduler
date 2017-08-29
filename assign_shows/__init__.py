@@ -8,10 +8,11 @@ __version__ = "0.1.0"
 dirname = os.path.dirname(os.path.abspath(__file__))
 template_folder = os.path.join(dirname,'templates')
 static_folder = os.path.join(dirname,'static')
+print('template_folder={} static_folder={}'.format(template_folder,static_folder))
 app = Flask(__name__,
             template_folder=template_folder,
             static_folder=static_folder,
-            static_url_path='/static'
+            static_url_path=''
             )
 app.config.from_object('assign_shows.config')
 
