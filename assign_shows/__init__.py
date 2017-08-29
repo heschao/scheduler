@@ -5,9 +5,13 @@ from flask_sqlalchemy import SQLAlchemy
 
 __version__ = "0.1.0"
 
+dirname = os.path.dirname(os.path.abspath(__file__))
+template_folder = os.path.join(dirname,'templates')
+static_folder = os.path.join(dirname,'static')
 app = Flask(__name__,
-            template_folder='templates',
-            static_folder='static'
+            template_folder=template_folder,
+            static_folder=static_folder,
+            static_url_path='/static'
             )
 app.config.from_object('assign_shows.config')
 
