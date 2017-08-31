@@ -16,10 +16,6 @@ app = Flask(__name__,
             )
 app.config.from_object('sorsched.config')
 
-custom_config_env = 'SHOW_SCHEDULER_APP_CONFIG'
-if custom_config_env in os.environ:
-    app.config.from_envvar(custom_config_env)
-
 Bootstrap(app)
 db = SQLAlchemy(app)
 

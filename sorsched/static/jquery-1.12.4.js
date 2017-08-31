@@ -933,7 +933,7 @@ function markFunction( fn ) {
 }
 
 /**
- * Support testing using an element
+ * Support dbtest using an element
  * @param {Function} fn Passed the created div and expects a boolean result
  */
 function assert( fn ) {
