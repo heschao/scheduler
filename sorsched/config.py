@@ -1,4 +1,4 @@
-SQLALCHEMY_DATABASE_URI = 'sqlite:////data/sorsched.db'
+SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://cranacho:bernie123@scheduler-postgres:5432/sorsched'
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 DEBUG = True
 WTF_CSRF_ENABLED = True
