@@ -1,12 +1,12 @@
 from flask import render_template, request, redirect, flash
 from sqlalchemy.exc import OperationalError
 
-from scheduler import app, db
-from scheduler.forms import ShowForm, StudentForm, PreferenceForm, AssignmentForm, OverviewForm
-from scheduler.input_config import Config
-from scheduler.models import Show, Slot, Student, ShowPreference
-from scheduler.nav import NAV_ITEMS
-from scheduler.solver import solve_fixed_days, get_fixed_day_configs, Solution
+from sorsched import app, db
+from sorsched.forms import ShowForm, StudentForm, PreferenceForm, AssignmentForm, OverviewForm
+from sorsched.input_config import Config
+from sorsched.models import Show, Slot, Student, ShowPreference
+from sorsched.nav import NAV_ITEMS
+from sorsched.solver import solve_fixed_days, get_fixed_day_configs, Solution
 
 
 def start_over():

@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from scheduler import db
+from sorsched import db
 
 
 def uuid4str():

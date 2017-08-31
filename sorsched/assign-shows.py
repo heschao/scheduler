@@ -1,8 +1,8 @@
 import click
 from pulp import *
 
-from scheduler.solver import solve_fixed_days, load_yaml, get_fixed_day_configs
-from scheduler.input_config import Config
+from sorsched.solver import solve_fixed_days, load_yaml, get_fixed_day_configs
+from sorsched.input_config import Config
 
 DEFAULT_PREF_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'show-preferences.yml')
 

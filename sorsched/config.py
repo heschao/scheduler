@@ -1,4 +1,4 @@
-SQLALCHEMY_DATABASE_URI = 'sqlite:////data/scheduler.db'
+SQLALCHEMY_DATABASE_URI = 'sqlite:////data/sorsched.db'
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 DEBUG = True
 WTF_CSRF_ENABLED = True
