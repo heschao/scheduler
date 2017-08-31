@@ -1,9 +1,9 @@
 import typing
 from typing import Dict
 
-from assign_shows import db, models
-from assign_shows.models import ShowPreference, Slot
-from assign_shows.data import Student, Show, Day, DayAssignment
+from scheduler import db, models
+from scheduler.models import ShowPreference, Slot
+from scheduler.data import Student, Show, Day, DayAssignment
 
 
 class Config(object):

@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from assign_shows import db
+from scheduler import db
 
 
 def uuid4str():

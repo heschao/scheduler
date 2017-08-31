@@ -8,8 +8,8 @@ from typing import Dict, Tuple, Iterable
 import yaml
 from pulp import LpVariable, LpInteger, LpProblem, LpMinimize, lpSum, LpStatus, value
 
-from assign_shows.data import Student, Show, Day, DayAssignment
-from assign_shows.input_config import Config, FixedDayConf
+from scheduler.data import Student, Show, Day, DayAssignment
+from scheduler.input_config import Config, FixedDayConf
 
 
 class Solution(object):

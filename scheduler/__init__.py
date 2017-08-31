@@ -14,7 +14,7 @@ app = Flask(__name__,
             static_folder=static_folder,
             static_url_path=''
             )
-app.config.from_object('assign_shows.config')
+app.config.from_object('scheduler.config')
 
 custom_config_env = 'SHOW_SCHEDULER_APP_CONFIG'
 if custom_config_env in os.environ:
@@ -23,4 +23,4 @@ if custom_config_env in os.environ:
 Bootstrap(app)
 db = SQLAlchemy(app)
 
-from assign_shows import views
+from scheduler import views
