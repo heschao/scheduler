@@ -1,2 +1,4 @@
-graft assign_shows/templates
-graft assign_shows/static
+include README.md
+include MANIFEST.in
+graft sorsched/templates
+graft sorsched/static

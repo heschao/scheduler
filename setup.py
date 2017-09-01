@@ -11,10 +11,12 @@ __version__ = re.search(
 setup(
     name='sorsched',
     version=__version__,
-    include_package_data=True,
+    package_data={'sorsched':['templates/*','static/*']},
     packages=['sorsched',],
+    scripts=['bin/init-db'],
     description='Assign kids to shows',
     author='Chao Chen',
     author_email='chao@cranient.com',
+    url='https://github.com/heschao/scheduler',
     long_description=open('README.md').read(), requires=['PyYAML', 'pulp', 'flask']
 )
