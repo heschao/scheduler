@@ -152,12 +152,9 @@ def solve_fixed_day(conf: FixedDayInput) -> FixedDaySolution:
         prob.solve()
         print("Status:", LpStatus[prob.status])
 
-    import pdb;pdb.set_trace()
-
     student_show_assignments = dict(
         [(conf.student(student_index).name, conf.show(show_index).name) for student_index, show_index in possible_assignments
          if x[(student_index, show_index)].value() == 1])
-    # import pdb;pdb.set_trace()
     return FixedDaySolution(utility=-value(prob.objective), student_show_assignments=student_show_assignments)
 
 
@@ -196,7 +193,45 @@ def test_solve_fixed_day_instruments():
     ]
     fixed_day_input = FixedDayInput(shows=shows, students=students, is_available=np.ones((3,2)).astype(bool))
     result = solve_fixed_day(fixed_day_input)
-    import pdb;pdb.set_trace()
     assert result.assigned_show_name(student_name='Ramona') == 'Lady Gaga'
     assert result.assigned_show_name(student_name='Jennifer') == 'Metallica'
+    assert result.assigned_show_name(student_name='Chao') == 'Metallica'
+
+
+def test_solve_fixed_day_students():
+    shows = [
+        Show(
+            name='Metallica',
+            instrument_min_max={
+                Instrument.Guitar: (0,100),
+            },
+            student_min_max=(1,1)),
+        Show(
+            name='Lady Gaga',
+            instrument_min_max={
+                Instrument.Guitar: (0, 100),
+            }
+            ,student_min_max=(2,2))
+    ]
+    students = [
+        Student(
+            name='Ramona',
+            instruments=(Instrument.Guitar,),
+            show_preferences={'Metallica': 0, 'Lady Gaga': 2, }
+        ),
+        Student(
+            name='Jennifer',
+            instruments=(Instrument.Guitar,),
+            show_preferences={'Metallica': 1, 'Lady Gaga': 2, }
+        ),
+        Student(
+            name='Chao',
+            instruments=(Instrument.Guitar,),
+            show_preferences={'Metallica': 2, 'Lady Gaga': 0, }
+        ),
+    ]
+    fixed_day_input = FixedDayInput(shows=shows, students=students, is_available=np.ones((3,2)).astype(bool))
+    result = solve_fixed_day(fixed_day_input)
+    assert result.assigned_show_name(student_name='Ramona') == 'Lady Gaga'
+    assert result.assigned_show_name(student_name='Jennifer') == 'Lady Gaga'
     assert result.assigned_show_name(student_name='Chao') == 'Metallica'
