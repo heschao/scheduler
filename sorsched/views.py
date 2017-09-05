@@ -3,10 +3,10 @@ from sqlalchemy.exc import OperationalError
 
 from sorsched import app, db
 from sorsched.forms import ShowForm, StudentForm, PreferenceForm, AssignmentForm, OverviewForm
-from sorsched.input_config import Config
+from sorsched.input_config import ConfigImp
 from sorsched.models import Show, Slot, Student, ShowPreference
 from sorsched.nav import NAV_ITEMS
-from sorsched.solver import solve_fixed_days, get_fixed_day_configs, Solution
+from sorsched.solver2 import solve
 
 
 def start_over():
@@ -17,8 +17,9 @@ def start_over():
     db.drop_all()
     db.create_all()
 
-@app.route('/',methods=['POST','GET'])
-@app.route('/index',methods=['POST','GET'])
+
+@app.route('/', methods=['POST', 'GET'])
+@app.route('/index', methods=['POST', 'GET'])
 def index():
     form = OverviewForm()
     if form.validate_on_submit():
@@ -39,7 +40,7 @@ def index():
     assigned_students = get_assigned_students(shows, students)
     return render_template(
         'index.html', shows=shows, slots=slots, students=students, preferences=preferences,
-        assigned_students=assigned_students,navitems=NAV_ITEMS, active_navitem="home",form=form)
+        assigned_students=assigned_students, navitems=NAV_ITEMS, active_navitem="home", form=form)
 
 
 def create_tables_if_not_exist():
@@ -129,7 +130,7 @@ def edit_student():
 def fill_student_form(form, student_name):
     student = db.session.query(Student).filter(Student.name == student_name).first()
     form.name.data = student.name
-    for p in student.show_preferences:
+    for p in student.show_preference:
         pform = PreferenceForm()
         pform.show_name = p.show_name
         pform.preference = p.preference
@@ -212,21 +213,21 @@ def run_optimization():
     :return:
     """
     # flash("here is where we solve for optimal solution, but now it's unimplemented")
-    conf = Config.load_from_db()
-    solutions = solve_fixed_days(fixed_day_confs=get_fixed_day_configs(conf))
-    optimal_solution = next(solutions) # type: Solution
+    conf = ConfigImp.load_from_db()
+    optimal_solution = solve(conf)
 
     # save show-slot assignments
-    for show_name,slot_name in optimal_solution.show_slots().items():
-        show = db.session.query(Show).filter(Show.name==show_name).first()
-        show.slot_name=slot_name
+    for show_name, slot_name in optimal_solution.show_slots().items():
+        show = db.session.query(Show).filter(Show.name == show_name).first()
+        show.slot_name = slot_name
 
     # save student-show assignments
-    for student_name,show_name in optimal_solution.assignments():
-        student=db.session.query(Student).filter(Student.name==student_name).first()
-        student.show_name=show_name
+    for student_name, show_name in optimal_solution.assignments():
+        student = db.session.query(Student).filter(Student.name == student_name).first()
+        student.show_name = show_name
 
     db.session.commit()
+
 
 @app.route('/assignments', methods=['POST', 'GET'])
 def assignments():

@@ -22,6 +22,7 @@ class Show(db.Model):
     min_students = db.Column(db.Integer)
     max_students = db.Column(db.Integer)
     slot_name = db.Column(db.String(80), db.ForeignKey("slot.name"), nullable=True)
+    instrument_min_max = db.relation('ShowInstrument')
 
     def __repr__(self):
         return '<Show(name={name}, {min_students}-{max_students} students, slot={slot_name})>'.format(
@@ -37,17 +38,40 @@ class Show(db.Model):
         self.max_students = max_students
 
 
+class ShowInstrument(db.Model):
+    __tablename__ = 'show_instrument'
+    show_name = db.Column(db.String(80),db.ForeignKey("show.name"),primary_key=True)
+    instrument = db.Column(db.String(80),primary_key=True)
+    min_instrument = db.Column(db.Integer,nullable=False)
+    max_instrument = db.Column(db.Integer,nullable=False)
+
+    def __repr__(self):
+        return "<ShowInstrument: {show_name}, {instrument}: min_instrument-max_instrument>".format(
+            show_name=self.show_name,instrument=self.instrument,
+            min_instrument=self.min_instrument,
+            max_instrument=self.max_instrument,
+        )
+
+    def __init__(self,show_name,instrument,min_instrument,max_instrument):
+        self.show_name=show_name
+        self.instrument=instrument
+        self.min_instrument=min_instrument
+        self.max_instrument=max_instrument
+
+
+
 class Student(db.Model):
     name = db.Column(db.String(80), primary_key=True)
     show_name = db.Column(db.String(80), db.ForeignKey("show.name"), nullable=True)
     show_preferences = db.relationship('ShowPreference', cascade="delete")
+    instruments = db.relationship('StudentInstrument')
+    available_slots = db.relationship('SlotAvailable')
 
     def __repr__(self):
         return '<Student({name}; {preferences})>'.format(name=self.name, preferences=self.show_preferences)
 
-    def __init__(self, name, show_name=None):
+    def __init__(self, name):
         self.name = name
-        self.show_name = show_name
 
 
 class Instrument(db.Model):
@@ -82,8 +106,11 @@ class StudentInstrument(db.Model):
     instrument_name = db.Column(db.String(80), db.ForeignKey("instrument.name"), primary_key=True)
 
 
-class ShowInstrument(db.Model):
-    show_name = db.Column(db.String(80), db.ForeignKey("show.name"), primary_key=True)
-    instrument_name = db.Column(db.String(80), db.ForeignKey("instrument.name"), primary_key=True)
-    min = db.Column(db.Integer, nullable=False)
-    max = db.Column(db.Integer, nullable=False)
+
+class ShowSlotAssignment(db.Model):
+    show_name=db.Column(db.String(80),db.ForeignKey("show.name"), primary_key=True)
+    slot_name=db.Column(db.String(80),db.ForeignKey("slot.name"), nullable=False)
+
+class StudentShowAssignment(db.Model):
+    student_name=db.Column(db.String(80),db.ForeignKey("student.name"), primary_key=True)
+    show_name=db.Column(db.String(80),db.ForeignKey("show.name"), nullable=False)

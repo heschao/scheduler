@@ -18,5 +18,5 @@ setup(
     author='Chao Chen',
     author_email='chao@cranient.com',
     url='https://github.com/heschao/scheduler',
-    long_description=open('README.md').read(), requires=['PyYAML', 'pulp', 'flask']
+    long_description=open('README.md').read(), requires=['PyYAML', 'pulp', 'flask', 'sqlalchemy', 'numpy']
 )

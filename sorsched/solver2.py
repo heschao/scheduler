@@ -1,110 +1,20 @@
-from enum import Enum
+import tempfile
+import typing
+from itertools import product
+from typing import Tuple
+from unittest.mock import MagicMock
 
 import numpy as np
-import tempfile
-from itertools import product
-from typing import List, Tuple, Dict
-
 from pulp import LpVariable, LpInteger, LpProblem, LpMinimize, lpSum, LpStatus, value
 
-
-class Instrument(Enum):
-    Guitar = 'guitar'
-    Vocals = 'vocals'
-    Drums = 'drums'
-
-
-class Student(object):
-    def __init__(self, show_preferences: Dict[str, float] = None, name=None, instruments=Tuple[Instrument]):
-        self._show_preferences = show_preferences
-        self.name = name
-        self.instruments = instruments
-
-    def __repr__(self):
-        return "<Student: {name}, instruments {instruments}, preferences {preferences}>".format(
-            name=self.name,instruments=self.instruments,preferences=self._show_preferences
-        )
-
-    def show_preferences(self, show_name):
-        return self._show_preferences[show_name]
+from sorsched.data import SlotAssignment, Instrument, Slot, Student, Show, ShowAssignmentsImp, FixedDayInput, \
+    FixedSlotSolution
+from sorsched.fixed_day_input import FixedDayInputImp
+from sorsched.input_config import Config, ConfigImp
+from sorsched.assign_slots_to_shows import enumerate_slot_assignments
 
 
-class Show(object):
-    def __init__(self, name=None, student_min_max: Tuple[int, int] = None,
-                 instrument_min_max: Dict[Instrument, Tuple[int, int]] = None):
-        self.name = name
-        self.student_min_max = student_min_max
-        self._instrument_min_max = instrument_min_max
-
-    def __repr__(self):
-        instrument_min_max = ''
-        for instrument,min_max in self._instrument_min_max.items():
-            instrument_min_max += ' {instrument}:{themin}-{themax}'.format(
-                instrument=instrument,themin=min_max[0],themax=min_max[1]
-            )
-        return "<Show: {name}, students: {smin}-{smax}, instruments: {instrument_min_max}>".format(
-            name=self.name,smin=self.student_min_max[0],smax=self.student_min_max[1],
-            instrument_min_max = instrument_min_max
-        )
-
-    def instrument_min_max(self,instrument):
-        if instrument in self._instrument_min_max:
-            return self._instrument_min_max[instrument]
-        else:
-            return 0, 0
-
-
-class FixedDayInput(object):
-    def __init__(self, shows=List[Show], students=List[Student], is_available:np.ndarray=None):
-        self._shows = shows
-        self._students = students
-        self._utility = self.create_utility_matrix(students=students, shows=shows)
-        self._is_available=is_available
-
-    def students(self) -> List[Student]:
-        return self._students
-
-    def shows(self) -> List[Show]:
-        return self._shows
-
-    def utility(self, student_index, show_index):
-        return self._utility[student_index, show_index]
-
-    def create_utility_matrix(self, students: List[Student], shows: List[Show]) -> np.ndarray:
-        n_students = len(students)
-        n_shows = len(shows)
-        x = np.zeros((n_students, n_shows))
-        for i in range(n_students):
-            for j in range(n_shows):
-                x[i, j] = students[i].show_preferences(show_name=shows[j].name)
-        return x
-
-    def is_available(self, student_index, show_index) -> bool:
-        """
-        Returns whether a student is available for a show
-        :param student_index:
-        :param show_index:
-        :return:
-        """
-        return self._is_available[student_index,show_index]
-
-    def student(self, student_index):
-        return self._students[student_index]
-
-    def show(self, show_index):
-        return self._shows[show_index]
-
-
-class FixedDaySolution(object):
-    def __init__(self, utility: float = None, student_show_assignments: Dict[str, str] = None):
-        self.utility = utility
-        self.student_show_assignments = student_show_assignments
-
-    def assigned_show_name(self, student_name: str) -> str:
-        return self.student_show_assignments[student_name]
-
-
-def solve_fixed_day(conf: FixedDayInput) -> FixedDaySolution:
+def solve_fixed_day(conf: FixedDayInput) -> FixedSlotSolution:
     """
     Optimizes over student->show assignments given student-show preference scores
     :param conf:
@@ -120,6 +30,7 @@ def solve_fixed_day(conf: FixedDayInput) -> FixedDaySolution:
     prob = LpProblem("Show Assignment Problem", LpMinimize)
     # objective -- maximize utility
     prob += sum([-conf.utility(student_index=i, show_index=j) * x[(i, j)] for i, j in possible_assignments])
+    # prob += sum([x[(i, j)] for i, j in possible_assignments])
     # constraint -- each student can have only one show
     for student_index in student_indexs:
         hits = [x[(student_index, show_index)] for show_index in show_indexes]
@@ -129,20 +40,20 @@ def solve_fixed_day(conf: FixedDayInput) -> FixedDaySolution:
     for show_index in show_indexes:
         show = conf.shows()[show_index]
         is_in_show = [x[(student_index, show_index)] for student_index in student_indexs]
-        min_students, max_students = show.student_min_max
+        min_students, max_students = show.student_min_max()
         prob += lpSum(is_in_show) >= min_students
         prob += lpSum(is_in_show) <= max_students
         for instrument in Instrument:
-            min_students, max_students = show.instrument_min_max(instrument)
+            min_students, max_students = show.instrument_min_max()[instrument] if instrument in show.instrument_min_max() else (0,9999)
             is_in_show_and_instrument = [x[(student_index, show_index)] for student_index in student_indexs if
-                                         instrument in conf.students()[student_index].instruments]
+                                         instrument in conf.students()[student_index].instruments()]
             prob += lpSum(is_in_show_and_instrument) >= min_students
             prob += lpSum(is_in_show_and_instrument) <= max_students
 
     # constraint -- restricted shows
     for show_index in show_indexes:
         is_not_available = [x[(student_index, show_index)] * (
-        1 - int(conf.is_available(student_index=student_index, show_index=show_index))) for student_index in
+            1 - int(conf.is_available(student_index=student_index, show_index=show_index))) for student_index in
                             student_indexs]
         prob += lpSum(is_not_available) == 0, ""
 
@@ -153,85 +64,127 @@ def solve_fixed_day(conf: FixedDayInput) -> FixedDaySolution:
         print("Status:", LpStatus[prob.status])
 
     student_show_assignments = dict(
-        [(conf.student(student_index).name, conf.show(show_index).name) for student_index, show_index in possible_assignments
+        [(conf.students()[student_index].name(), conf.shows()[show_index].name()) for student_index, show_index in
+         possible_assignments
          if x[(student_index, show_index)].value() == 1])
-    return FixedDaySolution(utility=-value(prob.objective), student_show_assignments=student_show_assignments)
+
+    return ShowAssignmentsImp(utility=value(prob.objective), assignments=student_show_assignments)
 
 
 def test_solve_fixed_day_instruments():
-    shows = [
-        Show(
-            name='Metallica',
-            instrument_min_max={
-                Instrument.Guitar: (1, 1),
-                Instrument.Drums: (1, 1),
-            },
-            student_min_max=(0,5)),
-        Show(
-            name='Lady Gaga',
-            instrument_min_max={
-                Instrument.Vocals: (1, 1),
-            }
-            ,student_min_max=(0,5))
-    ]
-    students = [
-        Student(
-            name='Ramona',
-            instruments=(Instrument.Vocals,),
-            show_preferences={'Metallica': 0, 'Lady Gaga': 10, }
-        ),
-        Student(
-            name='Jennifer',
-            instruments=(Instrument.Drums,),
-            show_preferences={'Metallica': 0, 'Lady Gaga': 0, }
-        ),
-        Student(
-            name='Chao',
-            instruments=(Instrument.Guitar,),
-            show_preferences={'Metallica': 0, 'Lady Gaga': 0, }
-        ),
-    ]
-    fixed_day_input = FixedDayInput(shows=shows, students=students, is_available=np.ones((3,2)).astype(bool))
+    Show.__abstractmethods__ = frozenset()
+    metallica = Show()
+    metallica.name = MagicMock(return_value='Metallica')
+    metallica.instrument_min_max = MagicMock(return_value={
+        Instrument.Guitar: (1, 1),
+        Instrument.Drums: (1, 1),
+    })
+    metallica.student_min_max = MagicMock(return_value=(0, 5))
+    gaga = Show()
+    gaga.name = MagicMock(return_value='Lady Gaga')
+    gaga.instrument_min_max = MagicMock(return_value={Instrument.Vocals: (1, 1)})
+    gaga.student_min_max = MagicMock(return_value=(0, 5))
+    shows = [metallica, gaga]
+
+    Slot.__abstractmethods__ = frozenset()
+    mon = Slot()
+    mon.name = MagicMock(return_value='Mon')
+    tue = Slot()
+    tue.name = MagicMock(return_value='Tue')
+
+    slots = [mon, tue]
+    Student.__abstractmethods__ = frozenset()
+    ramona = Student()
+    ramona.name = MagicMock(return_value='Ramona')
+    ramona.instruments = MagicMock(return_value=[Instrument.Vocals])
+    ramona.show_preferences = MagicMock(return_value={'Metallica': 0, 'Lady Gaga': 10, })
+    ramona.available_slots = MagicMock(return_value=['Mon','Tue'])
+    jennifer = Student()
+    jennifer.name = MagicMock(return_value='Jennifer')
+    jennifer.instruments = MagicMock(return_value=[Instrument.Drums])
+    jennifer.show_preferences = MagicMock(return_value={'Metallica': 0, 'Lady Gaga': 0, })
+    jennifer.available_slots = MagicMock(return_value=['Mon','Tue'])
+    chao = Student()
+    chao.name = MagicMock(return_value='Chao')
+    chao.instruments = MagicMock(return_value=[Instrument.Guitar])
+    chao.show_preferences = MagicMock(return_value={'Metallica': 0, 'Lady Gaga': 0, })
+    chao.available_slots = MagicMock(return_value=['Mon','Tue'])
+
+    students = [ramona, jennifer, chao]
+
+    conf = ConfigImp(shows=shows, slots=slots, students=students)
+    slot_assignment = SlotAssignment(d={'Metallica': 'Mon', 'Lady Gaga': 'Tue'})
+
+    fixed_day_input = FixedDayInputImp(conf=conf, slot_assignment=slot_assignment)
     result = solve_fixed_day(fixed_day_input)
-    assert result.assigned_show_name(student_name='Ramona') == 'Lady Gaga'
-    assert result.assigned_show_name(student_name='Jennifer') == 'Metallica'
-    assert result.assigned_show_name(student_name='Chao') == 'Metallica'
+    assert result.student_show_assignment()['Ramona'] == 'Lady Gaga'
+    assert result.student_show_assignment()['Jennifer'] == 'Metallica'
+    assert result.student_show_assignment()['Chao'] == 'Metallica'
 
 
 def test_solve_fixed_day_students():
-    shows = [
-        Show(
-            name='Metallica',
-            instrument_min_max={
-                Instrument.Guitar: (0,100),
-            },
-            student_min_max=(1,1)),
-        Show(
-            name='Lady Gaga',
-            instrument_min_max={
-                Instrument.Guitar: (0, 100),
-            }
-            ,student_min_max=(2,2))
-    ]
-    students = [
-        Student(
-            name='Ramona',
-            instruments=(Instrument.Guitar,),
-            show_preferences={'Metallica': 0, 'Lady Gaga': 2, }
-        ),
-        Student(
-            name='Jennifer',
-            instruments=(Instrument.Guitar,),
-            show_preferences={'Metallica': 1, 'Lady Gaga': 2, }
-        ),
-        Student(
-            name='Chao',
-            instruments=(Instrument.Guitar,),
-            show_preferences={'Metallica': 2, 'Lady Gaga': 0, }
-        ),
-    ]
-    fixed_day_input = FixedDayInput(shows=shows, students=students, is_available=np.ones((3,2)).astype(bool))
+    Show.__abstractmethods__ = frozenset()
+    metallica = Show()
+    metallica.name = MagicMock(return_value='Metallica')
+    metallica.instrument_min_max = MagicMock(return_value={
+        Instrument.Guitar: (0, 100),
+    })
+    metallica.student_min_max = MagicMock(return_value=(1, 1))
+    gaga = Show()
+    gaga.name = MagicMock(return_value='Lady Gaga')
+    gaga.instrument_min_max = MagicMock(return_value={Instrument.Vocals: (0, 100)})
+    gaga.student_min_max = MagicMock(return_value=(2, 2))
+    shows = [metallica, gaga]
+
+    Slot.__abstractmethods__ = frozenset()
+    mon = Slot()
+    mon.name = MagicMock(return_value='Mon')
+    tue = Slot()
+    tue.name = MagicMock(return_value='Tue')
+
+    slots = [mon, tue]
+    Student.__abstractmethods__ = frozenset()
+    ramona = Student()
+    ramona.name = MagicMock(return_value='Ramona')
+    ramona.instruments = MagicMock(return_value=[Instrument.Vocals])
+    ramona.show_preferences = MagicMock(return_value={'Metallica': 0, 'Lady Gaga': 2, })
+    ramona.available_slots = MagicMock(return_value=['Mon','Tue'])
+    jennifer = Student()
+    jennifer.name = MagicMock(return_value='Jennifer')
+    jennifer.instruments = MagicMock(return_value=[Instrument.Drums])
+    jennifer.show_preferences = MagicMock(return_value={'Metallica': 1, 'Lady Gaga': 1, })
+    jennifer.available_slots = MagicMock(return_value=['Mon','Tue'])
+    chao = Student()
+    chao.name = MagicMock(return_value='Chao')
+    chao.instruments = MagicMock(return_value=[Instrument.Guitar])
+    chao.show_preferences = MagicMock(return_value={'Metallica': 2, 'Lady Gaga': 0, })
+    chao.available_slots = MagicMock(return_value=['Mon','Tue'])
+
+    students = [ramona, jennifer, chao]
+
+    conf = ConfigImp(shows=shows, slots=slots, students=students)
+
+    slot_assignment = SlotAssignment(d={'Metallica': 'Mon', 'Lady Gaga': 'Tue'})
+
+    fixed_day_input = FixedDayInputImp(conf=conf, slot_assignment=slot_assignment)
     result = solve_fixed_day(fixed_day_input)
-    assert result.assigned_show_name(student_name='Ramona') == 'Lady Gaga'
-    assert result.assigned_show_name(student_name='Jennifer') == 'Lady Gaga'
-    assert result.assigned_show_name(student_name='Chao') == 'Metallica'
+    assert result.student_show_assignment()['Ramona'] == 'Lady Gaga'
+    assert result.student_show_assignment()['Jennifer'] == 'Lady Gaga'
+    assert result.student_show_assignment()['Chao'] == 'Metallica'
+
+
+def solve(conf):
+    best_solution = ShowAssignmentsImp(utility=-np.inf)
+    best_slot_assignments = None
+    for slot_assignments, fixed_day_config in get_fixed_day_configs(conf):
+        solution = solve_fixed_day(fixed_day_config)
+        if solution.utility() > best_solution.utility():
+            best_solution = solution
+            best_slot_assignments = slot_assignments
+    return best_slot_assignments, best_solution
+
+
+def get_fixed_day_configs(conf: Config) -> typing.Iterable[Tuple[SlotAssignment, FixedDayInput]]:
+    possible_show_slot_assignments = enumerate_slot_assignments(slots=conf.slots(), shows=conf.shows())
+    for slot_assignments in possible_show_slot_assignments:
+        yield slot_assignments, FixedDayInputImp(conf=conf, slot_assignment=slot_assignments)
