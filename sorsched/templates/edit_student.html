@@ -2,23 +2,56 @@
 {% block content %}
 <h2>Add/Edit Student</h2>
      <form action="" method="post" name="edit_student">
-      {{ form.hidden_tag() }}
+     {{ form.hidden_tag() }}
+        <!-- Student Name -->
          <div class="form-group row">
-             <label for="name" class="col-sm-2 col-form-label">Name</label>
+             <label for="student_name" class="col-sm-2 col-form-label">Name</label>
              <div class="col-sm-10">
                  {{ form.name(class_="form-control") }}
              </div>
          </div>
-     {%  for p in form.preferences.entries %}
-        {{ p.hidden_tag() }}
+
+        <!-- Instruments -->
+        <div class="form-group row">
+            <div class="col-sm-3">
+            Instruments
+             {% for f in form.instruments.entries %}
+                 {{ f.hidden_tag() }}
+                 <div class="form-group row">
+                 <div class="col-sm-6"><label>{{ f.instrument_name.data }}</label></div>
+                 <div class="col-sm-6">{{ f.student_plays(class_="form-control") }}</div>
+                 </div>
+             {% endfor %}
+            </div>
+
+            <div class="col-sm-3">
+            Available Slots
+             {% for f in form.slot_availabilities.entries %}
+                 {{ f.hidden_tag() }}
+                 <div class="form-group row">
+                 <div class="col-sm-6"><label>{{ f.slot_name.data }}</label></div>
+                 <div class="col-sm-6">{{ f.student_is_available(class_="form-control") }}</div>
+                 </div>
+             {% endfor %}
+            </div>
+
+            <div class="col-sm-6">
+                Show Preferences
+                {% for f in form.show_preferences.entries %}
+                 {{ f.hidden_tag() }}
+                    <div class="form-group row">
+                        <div class="col-sm-6"><label>{{ f.show_name.data }}</label></div>
+                        <div class="col-sm-6">{{ f.preference(class_="formo-control") }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+
+        </div>
+        <!-- Submit Buttons -->
          <div class="form-group row">
-             <label class="col-sm-2 col-form-label">{{ p.show_name.data }}</label>
-             <div class="col-sm-10">
-                 {{ p.preference(class_="form-control") }}
-             </div>
+             <div class="col-sm-2">&nbsp;</div>
+             <div class="col-sm-2">{{ form.save_student(class_="btn btn-primary") }}</div>
+             <div class="col-sm-2">{{ form.delete_student(class_="btn btn-primary") }}</div>
          </div>
-     {% endfor %}
-     {{ form.save_student(class_="btn btn-primary") }}
-     {{ form.delete_student(class_="btn btn-primary") }}
      </form>
 {% endblock %}

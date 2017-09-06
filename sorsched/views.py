@@ -1,10 +1,15 @@
+from typing import Dict
+
 from flask import render_template, request, redirect, flash
 from sqlalchemy.exc import OperationalError
 
 from sorsched import app, db
-from sorsched.forms import ShowForm, StudentForm, PreferenceForm, AssignmentForm, OverviewForm
+from sorsched.canned_inputs import seed
+from sorsched.forms import ShowForm, AssignmentForm, OverviewForm, InstrumentMinMaxForm, \
+    StudentForm, InstrumentIndicatorForm, SlotAvailabilityForm, ShowPreferenceForm
 from sorsched.input_config import ConfigImp
-from sorsched.models import Show, Slot, Student, ShowPreference
+from sorsched.models import Show, Slot, Student, ShowPreference, Instrument, ShowInstrument, SlotAvailable, \
+    StudentInstrument
 from sorsched.nav import NAV_ITEMS
 from sorsched.solver2 import solve
 
@@ -26,9 +31,11 @@ def index():
         if form.start_over.data:
             start_over()
         elif form.seed.data:
-            seed()
+            seed(session=db.session)
+            db.session.commit()
         elif form.run.data:
-            run_optimization()
+            run_optimization(session=db.session)
+            db.session.commit()
             return redirect('/assignments')
 
     create_tables_if_not_exist()
@@ -85,6 +92,14 @@ def fill_show_form(form, show_name):
     form.name.data = show.name
     form.min_students.data = show.min_students
     form.max_students.data = show.max_students
+    for instrument, min_max in db.session.query(Instrument, ShowInstrument).outerjoin(ShowInstrument).filter(
+                    ShowInstrument.show_name == show.name).all():
+        iform = InstrumentMinMaxForm()
+        iform.instrument_name = instrument.name
+        if min_max:
+            iform.min_instruments = min_max.min_instruments
+            iform.max_instruments = min_max.max_instruments
+        form.instrument_min_max.append_entry(iform)
 
 
 def edit_show_from_form(form):
@@ -94,12 +109,19 @@ def edit_show_from_form(form):
     else:
         show.min_students = int(form.min_students.data)
         show.max_students = int(form.max_students.data)
+        for iform in form.instrument_min_max.entries:
+            show_instrument = db.session.query(ShowInstrument).filter(ShowInstrument.show_name == show.name).filter(
+                ShowInstrument.instrument_name == iform.data['instrument_name']
+            ).first()
+            show_instrument.min_instruments = int(iform.data['min_instruments'])
+            show_instrument.max_instruments = int(iform.data['max_instruments'])
     db.session.commit()
 
 
 @app.route('/add_show', methods=['GET', 'POST'])
 def add_show():
     form = ShowForm()
+    build_show_form(form)
     if form.validate_on_submit():
         show = Show(
             name=form.name.data,
@@ -107,48 +129,138 @@ def add_show():
             max_students=int(form.max_students.data)
         )
         db.session.add(show)
+        for iform in show.instrument_min_max.entries:
+            show_instrument = ShowInstrument(
+                show_name=show.name,
+                instrument_name=iform.data['instrument_name'],
+                min_instruments=int(iform.data['min_instruments']),
+                max_instruments=int(iform.data['max_instruments'])
+            )
+            db.add(show_instrument)
         db.session.commit()
         return redirect('/')
     return render_template('edit_show.html', form=form, navitems=NAV_ITEMS, active_navitem="shows")
+
+
+def update_student(session, form:StudentForm):
+    """
+    Edit the student from the content of the form
+    :param session:
+    :param form:
+    :return:
+    """
+    # Student
+    student_name = form.name.data
+    student = session.query(Student).filter(Student.name==student_name).first()
+    assert student is not None, 'Student {} not found'.format(student_name)
+
+    # Instruments
+    session.query(StudentInstrument).filter(StudentInstrument.student_name==student_name).delete()
+    for f in form.instruments.entries:
+        student_plays = f.data['student_plays']
+        if not student_plays:
+            continue
+        instrument_name = f.data['instrument_name']
+        session.add(StudentInstrument(student_name=student_name,instrument_name=instrument_name))
+
+    # Slots
+    session.query(SlotAvailable).filter(SlotAvailable.student_name==student_name).delete()
+    for f in form.slot_availabilities.entries:
+        student_is_available = f.data['student_is_available']
+        if not student_is_available:
+            continue
+        slot_name = f.data['slot_name']
+        session.add(SlotAvailable(student_name=student_name,slot_name=slot_name))
+
+    # Shows
+    session.query(ShowPreference).filter(ShowPreference.student_name==student_name).delete()
+    for f in form.show_preferences.entries:
+        show_name = f.data['show_name']
+        preference = float(f.data['preference'])
+        session.add(ShowPreference(student_name=student_name,show_name=show_name,preference=preference))
+
+
+def get_student_instruments(session, student_name)->Dict[str,bool]:
+    """
+    Get the list of instruments a student plays, but also list the ones she doesn't play
+    :param session:
+    :param student_name:
+    :return:
+    """
+    stmt = session.query(StudentInstrument).filter(StudentInstrument.student_name==student_name).subquery()
+    query = session.query(Instrument.name.label('instrument_name'),stmt.c.student_name).outerjoin(stmt,stmt.c.instrument_name==Instrument.name)
+    return dict([(x.instrument_name,x.student_name is not None) for x in query.all()])
+
+
+def get_student_slot_availabilities(session, student_name) ->Dict[str,bool]:
+    """
+    Get the list of slots, and for each one whether the student is available
+    :param session:
+    :param student_name:
+    :return:
+    """
+    stmt=session.query(SlotAvailable).filter(SlotAvailable.student_name==student_name).subquery()
+    query = session.query(Slot.name.label('slot_name'),stmt.c.student_name).outerjoin(stmt,stmt.c.slot_name==Slot.name)
+    return dict([(x.slot_name,x.student_name is not None) for x in query.all()])
+
+
+def get_student_show_preferences(session, student_name) -> Dict[str,float]:
+    """
+    Get the show preferences for the student. Put zero if not found
+    :param session:
+    :param student_name:
+    :return:
+    """
+    stmt = session.query(ShowPreference).filter(ShowPreference.student_name==student_name).subquery()
+    query = session.query(Show.name.label('show_name'),stmt.c.preference).outerjoin(stmt,stmt.c.show_name==Show.name)
+    return dict([(x.show_name,x.preference if x.preference is not None else 0.0) for x in query.all()])
+
+
+def fill_student_form(form:StudentForm, session):
+    """
+    Fill the form according to what's in the database
+    :param name:
+    :param form:
+    :return:
+    """
+    student_name = form.name.data
+    instruments = get_student_instruments(session=session,student_name=student_name)
+    for instrument_name, student_plays in instruments.items():
+        f = InstrumentIndicatorForm()
+        f.instrument_name=instrument_name
+        f.student_plays=student_plays
+        form.instruments.append_entry(f)
+
+    slot_availabilities = get_student_slot_availabilities(session=session,student_name=student_name)
+    for slot_name, student_is_available in slot_availabilities.items():
+        f = SlotAvailabilityForm()
+        f.slot_name=slot_name
+        f.student_is_available=student_is_available
+        form.slot_availabilities.append_entry(f)
+
+    show_preferences = get_student_show_preferences(session=session,student_name=student_name)
+    for show_name, preference in show_preferences.items():
+        f = ShowPreferenceForm()
+        f.show_name=show_name
+        f.preference=preference
+        form.show_preferences.append_entry(f)
 
 
 @app.route('/edit_student', methods=['POST', 'GET'])
 def edit_student():
     form = StudentForm()
     if form.validate_on_submit():
-        edit_student_from_form(form)
+        update_student(session=db.session,form=form)
+        db.session.commit()
+
         return redirect('/')
     else:
         # noinspection PyTypeChecker
         flash_errors(form)
 
-    name = request.args.get('name')
-    fill_student_form(form=form, student_name=name)
+    form.name.data=request.args.get('name')
+    fill_student_form(form=form,session=db.session)
     return render_template('edit_student.html', form=form, navitems=NAV_ITEMS, active_navitem="students")
-
-
-def fill_student_form(form, student_name):
-    student = db.session.query(Student).filter(Student.name == student_name).first()
-    form.name.data = student.name
-    for p in student.show_preference:
-        pform = PreferenceForm()
-        pform.show_name = p.show_name
-        pform.preference = p.preference
-        form.preferences.append_entry(pform)
-
-
-def edit_student_from_form(form):
-    name = form.name.data
-    if form.delete_student.data:
-        student = db.session.query(Student).filter(Student.name == name).first()
-        db.session.delete(student)
-    else:
-        for p in form.preferences.entries:
-            show_preference = db.session.query(ShowPreference).filter(
-                (ShowPreference.student_name == name) & (ShowPreference.show_name == p.data['show_name'])
-            ).first()
-            show_preference.preference = float(p.data['preference'])
-    db.session.commit()
 
 
 def flash_errors(form):
@@ -166,34 +278,19 @@ def add_student():
     form = StudentForm()
     if form.validate_on_submit():
         if form.save_student.data:
-            add_student_from_form(form)
             return redirect('/')
     else:
         # noinspection PyTypeChecker
         flash_errors(form)
 
-    build_student_form(form)
     return render_template('edit_student.html', form=form, navitems=NAV_ITEMS, active_navitem="students")
 
 
-def build_student_form(form):
-    for show in db.session.query(Show).all():
-        pform = PreferenceForm()
-        pform.show_name = show.name
-        pform.preference = 0
-        form.preferences.append_entry(pform)
-
-
-def add_student_from_form(form):
-    student_name = form.name.data
-    student = Student(name=student_name)
-    db.session.add(student)
-    for p in form.preferences.entries:
-        show_name = p.data['show_name']
-        preference = float(p.data['preference'])
-        show_preference = ShowPreference(student_name=student_name, show_name=show_name, preference=preference)
-        db.session.add(show_preference)
-    db.session.commit()
+def build_show_form(form: ShowForm):
+    for instrument in db.session.query(Instrument).all():
+        iform = InstrumentMinMaxForm()
+        iform.instrument_name = instrument.name
+        form.instrument_min_max.append_entry(iform)
 
 
 class Assignment(object):
@@ -207,33 +304,32 @@ class Assignment(object):
         self.slot_name = slot_name
 
 
-def run_optimization():
+def run_optimization(session):
     """
     Solve for optimal assignments!
     :return:
     """
     # flash("here is where we solve for optimal solution, but now it's unimplemented")
-    conf = ConfigImp.load_from_db()
-    optimal_solution = solve(conf)
+    conf = ConfigImp.load_from_db(session=session)
+    slot_assignment, optimal_solution = solve(conf)
 
     # save show-slot assignments
-    for show_name, slot_name in optimal_solution.show_slots().items():
+    for show_name, slot_name in slot_assignment.show_slots().items():
         show = db.session.query(Show).filter(Show.name == show_name).first()
         show.slot_name = slot_name
 
     # save student-show assignments
-    for student_name, show_name in optimal_solution.assignments():
+    for student_name, show_name in optimal_solution.student_show_assignment().items():
         student = db.session.query(Student).filter(Student.name == student_name).first()
         student.show_name = show_name
-
-    db.session.commit()
 
 
 @app.route('/assignments', methods=['POST', 'GET'])
 def assignments():
     form = AssignmentForm()
     if form.validate_on_submit():
-        run_optimization()
+        run_optimization(session=db.session)
+        db.session.commit()
 
     asses = []
     for student, show in db.session.query(Student, Show).outerjoin(Show).all():
@@ -247,22 +343,3 @@ def assignments():
         asses.append(Assignment(student_name=student.name, show_name=show_name, slot_name=slot_name))
     return render_template('assignments.html', assignments=asses, form=form, navitems=NAV_ITEMS,
                            active_navitem="assignments")
-
-
-def seed():
-    start_over()
-    db.session.add(Show(name='Led Zeppelin', min_students=1, max_students=2))
-    db.session.add(Show(name='Metallica', min_students=1, max_students=2))
-    db.session.add(Slot(name='Wed', max_shows=1))
-    db.session.add(Slot(name='Sat-1', max_shows=1))
-    db.session.add(Slot(name='Sat-2', max_shows=1))
-    db.session.add(Student(name='Ramona'))
-    db.session.add(Student(name='Jennifer'))
-    db.session.add(Student(name='Chao'))
-    db.session.add(ShowPreference(student_name='Ramona', show_name='Led Zeppelin', preference=1))
-    db.session.add(ShowPreference(student_name='Ramona', show_name='Metallica', preference=3))
-    db.session.add(ShowPreference(student_name='Jennifer', show_name='Led Zeppelin', preference=4))
-    db.session.add(ShowPreference(student_name='Jennifer', show_name='Metallica', preference=0))
-    db.session.add(ShowPreference(student_name='Chao', show_name='Led Zeppelin', preference=2))
-    db.session.add(ShowPreference(student_name='Chao', show_name='Metallica', preference=2))
-    db.session.commit()

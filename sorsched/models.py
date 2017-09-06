@@ -15,6 +15,9 @@ class Slot(db.Model):
         self.name = name
         self.max_shows = max_shows
 
+    def __repr__(self):
+        return "<Slot: {} {} concurrent rehearsals>".format(self.name,self.max_shows)
+
 
 class Show(db.Model):
     __tablename__ = 'show'
@@ -41,22 +44,22 @@ class Show(db.Model):
 class ShowInstrument(db.Model):
     __tablename__ = 'show_instrument'
     show_name = db.Column(db.String(80),db.ForeignKey("show.name"),primary_key=True)
-    instrument = db.Column(db.String(80),primary_key=True)
-    min_instrument = db.Column(db.Integer,nullable=False)
-    max_instrument = db.Column(db.Integer,nullable=False)
+    instrument_name = db.Column(db.String(80), db.ForeignKey("instrument.name"), primary_key=True)
+    min_instruments = db.Column(db.Integer, nullable=False)
+    max_instruments = db.Column(db.Integer, nullable=False)
 
     def __repr__(self):
         return "<ShowInstrument: {show_name}, {instrument}: min_instrument-max_instrument>".format(
-            show_name=self.show_name,instrument=self.instrument,
-            min_instrument=self.min_instrument,
-            max_instrument=self.max_instrument,
+            show_name=self.show_name,instrument=self.instrument_name,
+            min_instrument=self.min_instruments,
+            max_instrument=self.max_instruments,
         )
 
-    def __init__(self,show_name,instrument,min_instrument,max_instrument):
+    def __init__(self, show_name, instrument_name, min_instruments, max_instruments):
         self.show_name=show_name
-        self.instrument=instrument
-        self.min_instrument=min_instrument
-        self.max_instrument=max_instrument
+        self.instrument_name=instrument_name
+        self.min_instruments=min_instruments
+        self.max_instruments=max_instruments
 
 
 
@@ -77,10 +80,25 @@ class Student(db.Model):
 class Instrument(db.Model):
     name = db.Column(db.String(80), primary_key=True)
 
+    def __init__(self, name=None):
+        self.name=name
+
+    def __repr__(self):
+        return "<Instrument: {}>".format(self.name)
+
 
 class SlotAvailable(db.Model):
+    __tablename__ = "slot_available"
     student_name = db.Column(db.String(80), db.ForeignKey("student.name"), primary_key=True)
-    slot_name = db.Column(db.String(80), db.ForeignKey("slot.name", primary_key=True))
+    slot_name = db.Column(db.String(80), db.ForeignKey("slot.name"), primary_key=True)
+
+    def __init__(self, student_name, slot_name):
+        self.student_name=student_name
+        self.slot_name=slot_name
+
+    def __repr__(self):
+        return "<SlotAvailable: {} : {}>".format(self.student_name,self.slot_name)
+
 
 
 class ShowPreference(db.Model):
@@ -105,6 +123,12 @@ class StudentInstrument(db.Model):
     student_name = db.Column(db.String(80), db.ForeignKey("student.name"), primary_key=True)
     instrument_name = db.Column(db.String(80), db.ForeignKey("instrument.name"), primary_key=True)
 
+    def __init__(self, student_name=None, instrument_name=None):
+        self.student_name = student_name
+        self.instrument_name = instrument_name
+
+    def __repr__(self):
+        return "<StudentInstrument: {} - {}>".format(self.student_name,self.instrument_name)
 
 
 class ShowSlotAssignment(db.Model):

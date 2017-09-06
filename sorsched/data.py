@@ -118,7 +118,7 @@ class StudentImp(Student):
         pass
 
     def instruments(self) -> List[Instrument]:
-        return [Instrument(x.instrument) for x in self.model.instruments]
+        return [Instrument(x.instrument_name) for x in self.model.instruments]
 
     def show_preference(self, show_name) -> float:
         pass
@@ -134,7 +134,7 @@ class Show(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def instrument_min_max(self, instrument: Instrument) -> Tuple[int, int]:
+    def instrument_min_max(self) -> dict:
         pass
 
 
@@ -149,14 +149,14 @@ class ShowImp(Show):
     def name(self) -> str:
         return self.model.name
 
-    def instrument_min_max(self, instrument: Instrument) -> Tuple[int, int]:
-        return self._instrument_min_max[instrument]
+    def instrument_min_max(self) -> dict:
+        return self._instrument_min_max
 
     @classmethod
     def build_instrument_min_max(cls, model: models.Show):
         x = {}
         for imm in model.instrument_min_max:
-            x[imm.instrument] = (imm.min_instruments, imm.max_instruments)
+            x[imm.instrument_name] = (imm.min_instruments, imm.max_instruments)
         return x
 
 
