@@ -12,7 +12,7 @@ setup(
     name='sorsched',
     version=__version__,
     package_data={'sorsched':['templates/*','static/*']},
-    packages=['sorsched',],
+    packages=['sorsched','dbtest'],
     scripts=['bin/init-db'],
     description='Assign kids to shows',
     author='Chao Chen',
