@@ -1,6 +1,7 @@
 import click
 from pulp import *
 
+from sorsched import db
 from sorsched.input_config import ConfigImp
 from sorsched.solver2 import solve
 
@@ -11,7 +12,7 @@ DEFAULT_PREF_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath
 @click.option('--pref-file', '-p', default=DEFAULT_PREF_FILE)
 @click.option('--test-config', '-t', is_flag=True)
 def main(pref_file, test_config):
-    conf = ConfigImp.load_from_db()
+    conf = ConfigImp.load_from_db(session=db.session)
     if test_config:
         conf.test()
         return

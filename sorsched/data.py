@@ -54,6 +54,8 @@ class Instrument(Enum):
     Guitar = 'guitar'
     Vocals = 'vocals'
     Drums = 'drums'
+    Bass = 'bass'
+    Keys = 'keys'
 
 
 class Slot(metaclass=ABCMeta):

@@ -24,8 +24,9 @@ class Show(db.Model):
     name = db.Column(db.String(80), primary_key=True)
     min_students = db.Column(db.Integer)
     max_students = db.Column(db.Integer)
-    slot_name = db.Column(db.String(80), db.ForeignKey("slot.name"), nullable=True)
     instrument_min_max = db.relation('ShowInstrument')
+    student_assignments = db.relation('StudentShowAssignment')
+    slot_assignments = db.relation('ShowSlotAssignment')
 
     def __repr__(self):
         return '<Show(name={name}, {min_students}-{max_students} students, slot={slot_name})>'.format(
@@ -65,7 +66,6 @@ class ShowInstrument(db.Model):
 
 class Student(db.Model):
     name = db.Column(db.String(80), primary_key=True)
-    show_name = db.Column(db.String(80), db.ForeignKey("show.name"), nullable=True)
     show_preferences = db.relationship('ShowPreference', cascade="delete")
     instruments = db.relationship('StudentInstrument')
     available_slots = db.relationship('SlotAvailable')
@@ -135,6 +135,14 @@ class ShowSlotAssignment(db.Model):
     show_name=db.Column(db.String(80),db.ForeignKey("show.name"), primary_key=True)
     slot_name=db.Column(db.String(80),db.ForeignKey("slot.name"), nullable=False)
 
+    def __init__(self,show_name,slot_name):
+        self.show_name=show_name
+        self.slot_name=slot_name
+
 class StudentShowAssignment(db.Model):
     student_name=db.Column(db.String(80),db.ForeignKey("student.name"), primary_key=True)
     show_name=db.Column(db.String(80),db.ForeignKey("show.name"), nullable=False)
+
+    def __init__(self, student_name, show_name ):
+        self.student_name=student_name
+        self.show_name=show_name

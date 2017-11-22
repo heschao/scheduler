@@ -14,9 +14,10 @@ from sorsched.input_config import Config, ConfigImp
 from sorsched.assign_slots_to_shows import enumerate_slot_assignments
 
 
-def solve_fixed_day(conf: FixedDayInput) -> FixedSlotSolution:
+def solve_fixed_day(conf: FixedDayInput, min_weight=0) -> FixedSlotSolution:
     """
     Optimizes over student->show assignments given student-show preference scores
+    :param min_weight:
     :param conf:
     :return:
     """
@@ -25,50 +26,54 @@ def solve_fixed_day(conf: FixedDayInput) -> FixedSlotSolution:
     n_shows = len(conf.shows())
     show_indexes = np.arange(n_shows)
 
-    possible_assignments = [x for x in product(*[student_indexs, show_indexes])]
+    possible_assignments = [(i, j) for i, j in product(*[student_indexs, show_indexes]) if
+                            conf.utility(student_index=i, show_index=j) >= min_weight]
     x = LpVariable.dicts("Assignment", possible_assignments, 0, 1, LpInteger)
     prob = LpProblem("Show Assignment Problem", LpMinimize)
     # objective -- maximize utility
     prob += sum([-conf.utility(student_index=i, show_index=j) * x[(i, j)] for i, j in possible_assignments])
-    # prob += sum([x[(i, j)] for i, j in possible_assignments])
+
     # constraint -- each student can have only one show
     for student_index in student_indexs:
-        hits = [x[(student_index, show_index)] for show_index in show_indexes]
+        hits = [x[(i, j)] for i,j in possible_assignments if i==student_index]
         prob += lpSum(hits) == 1, ""
 
     # constraint -- min max for each instrument
     for show_index in show_indexes:
         show = conf.shows()[show_index]
-        is_in_show = [x[(student_index, show_index)] for student_index in student_indexs]
+        is_in_show = [x[(i, show_index)] for i,j in possible_assignments if j==show_index]
         min_students, max_students = show.student_min_max()
         prob += lpSum(is_in_show) >= min_students
         prob += lpSum(is_in_show) <= max_students
         for instrument in Instrument:
-            min_students, max_students = show.instrument_min_max()[instrument] if instrument in show.instrument_min_max() else (0,9999)
-            is_in_show_and_instrument = [x[(student_index, show_index)] for student_index in student_indexs if
-                                         instrument in conf.students()[student_index].instruments()]
+            min_students, max_students = show.instrument_min_max()[
+                instrument] if instrument in show.instrument_min_max() else (0, 9999)
+            is_in_show_and_instrument = [x[(i, show_index)] for i,j in possible_assignments if j==show_index and
+                                         instrument in conf.students()[i].instruments()]
             prob += lpSum(is_in_show_and_instrument) >= min_students
             prob += lpSum(is_in_show_and_instrument) <= max_students
 
     # constraint -- restricted shows
     for show_index in show_indexes:
-        is_not_available = [x[(student_index, show_index)] * (
-            1 - int(conf.is_available(student_index=student_index, show_index=show_index))) for student_index in
-                            student_indexs]
+        is_not_available = [x[(i, show_index)] * (
+            1 - int(conf.is_available(student_index=i, show_index=show_index))) for i,j in possible_assignments if
+                            j==show_index]
         prob += lpSum(is_not_available) == 0, ""
 
     # The problem data is written to an .lp file
     with tempfile.NamedTemporaryFile() as f:
         prob.writeLP(f.name)
         prob.solve()
-        print("Status:", LpStatus[prob.status])
+        status = LpStatus[prob.status]
+        print("Status:", status)
 
     student_show_assignments = dict(
         [(conf.students()[student_index].name(), conf.shows()[show_index].name()) for student_index, show_index in
          possible_assignments
          if x[(student_index, show_index)].value() == 1])
 
-    return ShowAssignmentsImp(utility=value(prob.objective), assignments=student_show_assignments)
+    u = value(prob.objective) if status.lower()=='optimal' else -np.inf
+    return ShowAssignmentsImp(utility=u, assignments=student_show_assignments)
 
 
 def test_solve_fixed_day_instruments():
@@ -98,17 +103,17 @@ def test_solve_fixed_day_instruments():
     ramona.name = MagicMock(return_value='Ramona')
     ramona.instruments = MagicMock(return_value=[Instrument.Vocals])
     ramona.show_preferences = MagicMock(return_value={'Metallica': 0, 'Lady Gaga': 10, })
-    ramona.available_slots = MagicMock(return_value=['Mon','Tue'])
+    ramona.available_slots = MagicMock(return_value=['Mon', 'Tue'])
     jennifer = Student()
     jennifer.name = MagicMock(return_value='Jennifer')
     jennifer.instruments = MagicMock(return_value=[Instrument.Drums])
     jennifer.show_preferences = MagicMock(return_value={'Metallica': 0, 'Lady Gaga': 0, })
-    jennifer.available_slots = MagicMock(return_value=['Mon','Tue'])
+    jennifer.available_slots = MagicMock(return_value=['Mon', 'Tue'])
     chao = Student()
     chao.name = MagicMock(return_value='Chao')
     chao.instruments = MagicMock(return_value=[Instrument.Guitar])
     chao.show_preferences = MagicMock(return_value={'Metallica': 0, 'Lady Gaga': 0, })
-    chao.available_slots = MagicMock(return_value=['Mon','Tue'])
+    chao.available_slots = MagicMock(return_value=['Mon', 'Tue'])
 
     students = [ramona, jennifer, chao]
 
@@ -148,17 +153,17 @@ def test_solve_fixed_day_students():
     ramona.name = MagicMock(return_value='Ramona')
     ramona.instruments = MagicMock(return_value=[Instrument.Vocals])
     ramona.show_preferences = MagicMock(return_value={'Metallica': 0, 'Lady Gaga': 2, })
-    ramona.available_slots = MagicMock(return_value=['Mon','Tue'])
+    ramona.available_slots = MagicMock(return_value=['Mon', 'Tue'])
     jennifer = Student()
     jennifer.name = MagicMock(return_value='Jennifer')
     jennifer.instruments = MagicMock(return_value=[Instrument.Drums])
     jennifer.show_preferences = MagicMock(return_value={'Metallica': 1, 'Lady Gaga': 1, })
-    jennifer.available_slots = MagicMock(return_value=['Mon','Tue'])
+    jennifer.available_slots = MagicMock(return_value=['Mon', 'Tue'])
     chao = Student()
     chao.name = MagicMock(return_value='Chao')
     chao.instruments = MagicMock(return_value=[Instrument.Guitar])
     chao.show_preferences = MagicMock(return_value={'Metallica': 2, 'Lady Gaga': 0, })
-    chao.available_slots = MagicMock(return_value=['Mon','Tue'])
+    chao.available_slots = MagicMock(return_value=['Mon', 'Tue'])
 
     students = [ramona, jennifer, chao]
 
@@ -173,11 +178,25 @@ def test_solve_fixed_day_students():
     assert result.student_show_assignment()['Chao'] == 'Metallica'
 
 
-def solve(conf):
+def solve(conf: Config) -> Tuple[object, object]:
+    n_choices = len(conf.shows())
+    min_pref = 1
+    sa = None
+    sol = ShowAssignmentsImp(utility=-np.inf)
+    while min_pref <= n_choices:
+        min_weight = n_choices - min_pref + 1
+        sa, sol = solve_min_pref(conf=conf, min_weight=min_weight)
+        if sol.utility() > -np.inf:
+            break
+        min_pref+=1
+    return sa, sol
+
+
+def solve_min_pref(conf, min_weight):
     best_solution = ShowAssignmentsImp(utility=-np.inf)
     best_slot_assignments = None
     for slot_assignments, fixed_day_config in get_fixed_day_configs(conf):
-        solution = solve_fixed_day(fixed_day_config)
+        solution = solve_fixed_day(conf=fixed_day_config, min_weight=min_weight)
         if solution.utility() > best_solution.utility():
             best_solution = solution
             best_slot_assignments = slot_assignments
